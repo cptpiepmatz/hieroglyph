@@ -1,5 +1,4 @@
 // @generated
-#![rustfmt::skip]
 
 use std::sync::LazyLock;
 
