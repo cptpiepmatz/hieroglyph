@@ -102,6 +102,7 @@ fn main() {
     for font_meta in font_metas {
         let name = font_meta.name.as_str();
         match name {
+            _ if name.contains("Test") => (),
             _ if name.contains("NotoSans") => noto_sans.push(font_meta),
             _ if name.contains("NotoSerif") => noto_serif.push(font_meta),
             _ => noto_rest.push(font_meta),

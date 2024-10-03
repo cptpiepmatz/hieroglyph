@@ -27,7 +27,6 @@ static NOTO_SANS_MIAO_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../font
 static NOTO_SANS_MODI_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSansModi/unhinted/otf/NotoSansModi-Regular.otf");
 static NOTO_SANS_MONO_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSansMono/unhinted/otf/NotoSansMono-Regular.otf");
 static NOTO_SANS_NEWA_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSansNewa/unhinted/otf/NotoSansNewa-Regular.otf");
-static NOTO_SANS_TEST_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSansTest/unhinted/otf/NotoSansTest-Regular.otf");
 static NOTO_SANS_THAI_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSansThai/unhinted/otf/NotoSansThai-Regular.otf");
 static NOTO_SANS_ADLAM_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSansAdlam/unhinted/otf/NotoSansAdlam-Regular.otf");
 static NOTO_SANS_BAMUM_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSansBamum/unhinted/otf/NotoSansBamum-Regular.otf");
@@ -170,7 +169,7 @@ static NOTO_SANS_ANATOLIAN_HIEROGLYPHS_FONT_REF: LazyLock<FontRef<'static>> = la
 static NOTO_SANS_INSCRIPTIONAL_PAHLAVI_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSansInscriptionalPahlavi/unhinted/otf/NotoSansInscriptionalPahlavi-Regular.otf");
 static NOTO_SANS_INSCRIPTIONAL_PARTHIAN_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSansInscriptionalParthian/unhinted/otf/NotoSansInscriptionalParthian-Regular.otf");
 
-pub static NOTO_SANS: [&LazyLock<FontRef<'static>>; 156] = [
+pub static NOTO_SANS: [&LazyLock<FontRef<'static>>; 155] = [
     &NOTO_SANS_FONT_REF,
     &NOTO_SANS_YI_FONT_REF,
     &NOTO_SANS_LAO_FONT_REF,
@@ -185,7 +184,6 @@ pub static NOTO_SANS: [&LazyLock<FontRef<'static>>; 156] = [
     &NOTO_SANS_MODI_FONT_REF,
     &NOTO_SANS_MONO_FONT_REF,
     &NOTO_SANS_NEWA_FONT_REF,
-    &NOTO_SANS_TEST_FONT_REF,
     &NOTO_SANS_THAI_FONT_REF,
     &NOTO_SANS_ADLAM_FONT_REF,
     &NOTO_SANS_BAMUM_FONT_REF,
@@ -333,7 +331,6 @@ pub static NOTO_SANS: [&LazyLock<FontRef<'static>>; 156] = [
 static NOTO_SERIF_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSerif/unhinted/otf/NotoSerif-Regular.otf");
 static NOTO_SERIF_LAO_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSerifLao/unhinted/otf/NotoSerifLao-Regular.otf");
 static NOTO_SERIF_AHOM_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSerifAhom/unhinted/otf/NotoSerifAhom-Regular.otf");
-static NOTO_SERIF_TEST_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSerifTest/unhinted/otf/NotoSerifTest-Regular.otf");
 static NOTO_SERIF_THAI_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSerifThai/unhinted/otf/NotoSerifThai-Regular.otf");
 static NOTO_SERIF_TOTO_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSerifToto/unhinted/otf/NotoSerifToto-Regular.otf");
 static NOTO_SERIF_DOGRA_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSerifDogra/unhinted/otf/NotoSerifDogra-Regular.otf");
@@ -368,11 +365,10 @@ static NOTO_SERIF_DIVES_AKURU_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!(
 static NOTO_SERIF_OTTOMAN_SIYAQ_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSerifOttomanSiyaq/unhinted/otf/NotoSerifOttomanSiyaq-Regular.otf");
 static NOTO_SERIF_KHITAN_SMALL_SCRIPT_FONT_REF: LazyLock<FontRef<'static>> = lazy_font!("../fonts/Noto/fonts/NotoSerifKhitanSmallScript/unhinted/otf/NotoSerifKhitanSmallScript-Regular.otf");
 
-pub static NOTO_SERIF: [&LazyLock<FontRef<'static>>; 37] = [
+pub static NOTO_SERIF: [&LazyLock<FontRef<'static>>; 36] = [
     &NOTO_SERIF_FONT_REF,
     &NOTO_SERIF_LAO_FONT_REF,
     &NOTO_SERIF_AHOM_FONT_REF,
-    &NOTO_SERIF_TEST_FONT_REF,
     &NOTO_SERIF_THAI_FONT_REF,
     &NOTO_SERIF_TOTO_FONT_REF,
     &NOTO_SERIF_DOGRA_FONT_REF,
