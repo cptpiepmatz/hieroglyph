@@ -20,7 +20,7 @@ struct FontMeta {
     name: String,
     identifier: String,
     _font: FontVec,
-    max_codepoint: u32,
+    _max_codepoint: u32,
     path: PathBuf,
 }
 
@@ -48,7 +48,7 @@ impl FontMeta {
             name,
             identifier,
             _font: font,
-            max_codepoint,
+            _max_codepoint: max_codepoint,
             path,
         }
     }
@@ -96,7 +96,7 @@ fn main() {
         .map(|entry| entry.path())
         .map(|path| FontMeta::from_incomplete_path(&path))
         .collect();
-    font_metas.sort_by_key(|FontMeta { max_codepoint, .. }| *max_codepoint);
+    font_metas.sort_by_key(|FontMeta { name, .. }| name.len());
 
     let (mut noto_sans, mut noto_serif, mut noto_rest) = (vec![], vec![], vec![]);
     for font_meta in font_metas {
