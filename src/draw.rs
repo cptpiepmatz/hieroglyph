@@ -100,16 +100,6 @@ impl DrawingContext {
         })()
         .unwrap_or(0);
 
-        if let Some(Segment::Text(text_segment)) = segments.as_slice().first() {
-            buffer.set_text(
-                &mut self.font_system,
-                text_segment.as_str(),
-                attrs,
-                Shaping::Advanced,
-            );
-            if let Some(run) = buffer.layout_runs().next() {}
-        }
-
         for segment in segments.as_slice() {
             match segment {
                 Segment::Emoji(emoji_segment) => todo!(),
