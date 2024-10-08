@@ -18,15 +18,13 @@ const PLACEHOLDER_NOTO_REST: &str = "// __PLACEHOLDER_NOTO_REST__";
 
 struct FontMeta {
     name: String,
-    identifier: String,
+    _identifier: String,
     _font: FontVec,
     _max_codepoint: u32,
     path: PathBuf,
 }
 
 impl FontMeta {
-    const RS_TYPE: &str = "LazyLock<FontRef<'static>>";
-
     fn from_incomplete_path(path: &Path) -> FontMeta {
         let name = path
             .components()
@@ -46,44 +44,25 @@ impl FontMeta {
             .unwrap_or_default();
         FontMeta {
             name,
-            identifier,
+            _identifier: identifier,
             _font: font,
             _max_codepoint: max_codepoint,
             path,
         }
     }
 
-    fn make_lazy_font(&self) -> String {
-        format!(
-            "static {}: {} = lazy_font!(\"../{}\")",
-            self.identifier,
-            Self::RS_TYPE,
-            self.path.to_string_lossy().as_ref().replace("\\", "/")
-        )
-    }
-
-    fn make_list(name: &str, list: &[FontMeta]) -> String {
-        let mut out = String::new();
-        write!(
-            out,
-            "pub static {name}: [&{}; {}] = [",
-            Self::RS_TYPE,
-            list.len()
-        )
-        .unwrap();
-        for item in list {
-            write!(out, "\n    &{},", item.identifier).unwrap();
-        }
-        write!(out, "\n];").unwrap();
-        out
-    }
-
     fn make_macro(name: &str, list: &[FontMeta]) -> String {
         let mut out = String::new();
+        write!(out, "pub static {}: [&[u8]; {}] = [", name, list.len()).unwrap();
         for item in list {
-            write!(out, "{};\n", item.make_lazy_font()).unwrap();
+            write!(
+                out,
+                "\n    include_bytes!(\"../{}\"),",
+                item.path.to_string_lossy().replace("\\", "/")
+            )
+            .unwrap();
         }
-        write!(out, "\n{}\n", FontMeta::make_list(name, list)).unwrap();
+        write!(out, "\n];").unwrap();
         out
     }
 }
