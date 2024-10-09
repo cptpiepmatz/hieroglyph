@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use cosmic_text::fontdb::Database;
 use cosmic_text::{Attrs, Buffer, FontSystem, Metrics, Shaping, SwashCache};
-use resvg::tiny_skia::{self, Pixmap};
+use resvg::tiny_skia::{self, Pixmap, PixmapMut};
 use resvg::usvg::{Options, Transform, Tree};
 
 use crate::{fonts, EmojiSegment, Segment, Segments};
@@ -89,7 +89,8 @@ impl DrawingContext {
         let attrs = Attrs::new();
         let mut buffer = Buffer::new_empty(metrics);
 
-        let (capital_height, capital_line_y) = self.capital_height();
+        let (capital_height, capital_line_y) = self.capital_info();
+        let capital_info = self.capital_info();
         // TODO: expect or handle error
         let mut emoji_buffer = Pixmap::new(capital_height, capital_height).unwrap();
         let mut emoji_buffer = emoji_buffer.as_mut();
@@ -118,22 +119,7 @@ impl DrawingContext {
         for segment in segments.as_slice() {
             match segment {
                 Segment::Emoji(emoji_segment) => {
-                    // TODO: insert drawing emoji here
-                    let tree = self.tree(*emoji_segment);
-                    emoji_buffer.fill(tiny_skia::Color::TRANSPARENT);
-                    let scale = capital_height as f32 / tree.size().width();
-                    let x_spacer = (capital_height as f32 * 0.1) as i32;
-                    x_advance += x_spacer;
-                    let transform = Transform::from_scale(scale, scale);
-                    resvg::render(tree, transform, &mut emoji_buffer);
-                    let pixels = emoji_buffer.pixels_mut().into_iter().zip(pixel_iter(capital_height, capital_height));
-                    for (pixel, (x, y, _)) in pixels {
-                        let pixel = [pixel.red(), pixel.green(), pixel.blue(), pixel.alpha()];
-                        let x = x as i32 - x_offset + x_advance;
-                        let y = y as i32 + capital_line_y as i32 - capital_height as i32;
-                        f((x, y), pixel);
-                    }
-                    x_advance += capital_height as i32 + x_spacer;
+                    self.draw_emoji_segment(*emoji_segment, &mut f, &mut x_advance, x_offset, &mut emoji_buffer, capital_info);
                 }
                 Segment::Text(text_segment) => {
                     buffer.set_text(
@@ -170,7 +156,34 @@ impl DrawingContext {
         }
     }
 
-    pub fn capital_height(&mut self) -> (u32, f32) {
+    fn draw_emoji_segment(
+        &mut self, 
+        segment: EmojiSegment, 
+        mut f: impl FnMut((i32, i32), [u8; 4]),
+        x_advance: &mut i32,
+        x_offset: i32,
+        buffer: &mut PixmapMut,
+        (capital_height, capital_line_y): (u32, f32),
+
+    ) {
+        let tree = self.tree(segment);
+        buffer.fill(tiny_skia::Color::TRANSPARENT);
+        let scale = capital_height as f32 / tree.size().width();
+        let x_spacer = (capital_height as f32 * 0.1) as i32;
+        *x_advance += x_spacer;
+        let transform = Transform::from_scale(scale, scale);
+        resvg::render(tree, transform, buffer);
+        let pixels = buffer.pixels_mut().into_iter().zip(pixel_iter(capital_height, capital_height));
+        for (pixel, (x, y, _)) in pixels {
+            let pixel = [pixel.red(), pixel.green(), pixel.blue(), pixel.alpha()];
+            let x = x as i32 - x_offset + *x_advance;
+            let y = y as i32 + capital_line_y as i32 - capital_height as i32;
+            f((x, y), pixel);
+        }
+        *x_advance += capital_height as i32 + x_spacer;
+    }
+
+    pub fn capital_info(&mut self) -> (u32, f32) {
         (|| {
             let metrics = Metrics::new(self.font_size, self.line_height);
             let attrs = Attrs::new();
