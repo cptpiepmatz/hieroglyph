@@ -5,7 +5,7 @@ use cosmic_text::{Attrs, Buffer, FontSystem, Metrics, Shaping, SwashCache};
 use resvg::tiny_skia::{self, Pixmap, PixmapMut};
 use resvg::usvg::{Options, Transform, Tree};
 
-use crate::{fonts, EmojiSegment, Segment, Segments};
+use crate::{fonts, EmojiSegment, Segment, Segments, TextSegment};
 
 // use the emoji string as key
 type TreeCache = HashMap<&'static str, Tree>;
@@ -119,52 +119,77 @@ impl DrawingContext {
         for segment in segments.as_slice() {
             match segment {
                 Segment::Emoji(emoji_segment) => {
-                    self.draw_emoji_segment(*emoji_segment, &mut f, &mut x_advance, x_offset, &mut emoji_buffer, capital_info);
+                    self.draw_emoji_segment(
+                        *emoji_segment,
+                        &mut f,
+                        &mut x_advance,
+                        x_offset,
+                        &mut emoji_buffer,
+                        capital_info,
+                    );
                 }
                 Segment::Text(text_segment) => {
-                    buffer.set_text(
-                        &mut self.font_system,
-                        text_segment.as_str(),
+                    self.draw_text_segment(
+                        *text_segment,
+                        &mut f,
+                        &mut x_advance,
+                        x_offset,
+                        &mut buffer,
                         attrs,
-                        Shaping::Advanced,
                     );
-                    for run in buffer.layout_runs() {
-                        for glyph in run.glyphs.iter() {
-                            let physical_glyph = glyph.physical((0., 0.), 1.0);
-                            let glyph_color = glyph.color_opt.unwrap_or(cosmic_text::Color::rgba(
-                                self.color[0],
-                                self.color[1],
-                                self.color[2],
-                                self.color[3],
-                            ));
-                            let xd = |x| physical_glyph.x + x - x_offset + x_advance;
-                            let yd = |y| run.line_y as i32 + physical_glyph.y + y;
-                            self.swash_cache.with_pixels(
-                                &mut self.font_system,
-                                physical_glyph.cache_key,
-                                glyph_color,
-                                |x, y, color| {
-                                    f((xd(x), yd(y)), color.as_rgba());
-                                },
-                            );
-                        }
-
-                        x_advance += run.line_w.ceil() as i32;
-                    }
                 }
             }
         }
     }
 
+    fn draw_text_segment(
+        &mut self,
+        segment: TextSegment,
+        mut f: impl FnMut((i32, i32), [u8; 4]),
+        x_advance: &mut i32,
+        x_offset: i32,
+        buffer: &mut Buffer,
+        attrs: Attrs<'_>,
+    ) {
+        buffer.set_text(
+            &mut self.font_system,
+            segment.as_str(),
+            attrs,
+            Shaping::Advanced,
+        );
+        for run in buffer.layout_runs() {
+            for glyph in run.glyphs.iter() {
+                let physical_glyph = glyph.physical((0., 0.), 1.0);
+                let glyph_color = glyph.color_opt.unwrap_or(cosmic_text::Color::rgba(
+                    self.color[0],
+                    self.color[1],
+                    self.color[2],
+                    self.color[3],
+                ));
+                let xd = |x| physical_glyph.x + x - x_offset + *x_advance;
+                let yd = |y| run.line_y as i32 + physical_glyph.y + y;
+                self.swash_cache.with_pixels(
+                    &mut self.font_system,
+                    physical_glyph.cache_key,
+                    glyph_color,
+                    |x, y, color| {
+                        f((xd(x), yd(y)), color.as_rgba());
+                    },
+                );
+            }
+
+            *x_advance += run.line_w.ceil() as i32;
+        }
+    }
+
     fn draw_emoji_segment(
-        &mut self, 
-        segment: EmojiSegment, 
+        &mut self,
+        segment: EmojiSegment,
         mut f: impl FnMut((i32, i32), [u8; 4]),
         x_advance: &mut i32,
         x_offset: i32,
         buffer: &mut PixmapMut,
         (capital_height, capital_line_y): (u32, f32),
-
     ) {
         let tree = self.tree(segment);
         buffer.fill(tiny_skia::Color::TRANSPARENT);
@@ -173,7 +198,10 @@ impl DrawingContext {
         *x_advance += x_spacer;
         let transform = Transform::from_scale(scale, scale);
         resvg::render(tree, transform, buffer);
-        let pixels = buffer.pixels_mut().into_iter().zip(pixel_iter(capital_height, capital_height));
+        let pixels = buffer
+            .pixels_mut()
+            .into_iter()
+            .zip(pixel_iter(capital_height, capital_height));
         for (pixel, (x, y, _)) in pixels {
             let pixel = [pixel.red(), pixel.green(), pixel.blue(), pixel.alpha()];
             let x = x as i32 - x_offset + *x_advance;
