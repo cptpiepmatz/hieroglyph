@@ -1,4 +1,6 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt::Debug;
 
 use cosmic_text::fontdb::Database;
 use cosmic_text::{Attrs, Buffer, FontSystem, Metrics, Shaping, SwashCache};
@@ -20,16 +22,86 @@ pub struct DrawingContext {
     line_height: f32,
 }
 
+trait FontIterator: Iterator<Item = Vec<u8>> + Debug {}
+impl<I> FontIterator for I where I: Iterator<Item = Vec<u8>> + Debug {}
+
+#[derive(Debug)]
+pub struct DrawingContextBuilder {
+    font_order: FontOrder,
+    pre_fonts: Option<Box<dyn FontIterator>>,
+    locale: Cow<'static, str>,
+}
+
+impl Default for DrawingContextBuilder {
+    fn default() -> Self {
+        Self {
+            font_order: Default::default(),
+            pre_fonts: Default::default(),
+            locale: "en".into(),
+        }
+    }
+}
+
+impl DrawingContextBuilder {
+    pub fn font_order(mut self, font_order: FontOrder) -> Self {
+        self.font_order = font_order;
+        self
+    }
+
+    pub fn pre_fonts(
+        self,
+        pre_fonts: impl Iterator<Item = impl Into<Vec<u8>> + 'static> + 'static + Debug,
+    ) -> DrawingContextBuilder {
+        DrawingContextBuilder {
+            pre_fonts: Some(Box::new(pre_fonts.map(Into::into))),
+            font_order: self.font_order,
+            locale: self.locale,
+        }
+    }
+
+    pub fn locale(mut self, locale: impl Into<Cow<'static, str>>) -> Self {
+        self.locale = locale.into();
+        self
+    }
+
+    pub fn build(self) -> DrawingContext {
+        DrawingContext::new_from_builder(self)
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+pub enum FontOrder {
+    #[default]
+    SansFirst,
+    SerifFirst,
+}
+
 impl DrawingContext {
     pub fn new() -> Self {
+        Self::configure().build()
+    }
+
+    pub fn configure() -> DrawingContextBuilder {
+        DrawingContextBuilder::default()
+    }
+
+    pub fn new_from_builder(builder: DrawingContextBuilder) -> Self {
         use fonts::{NOTO_REST, NOTO_SANS, NOTO_SERIF};
 
         let mut font_db = Database::new();
-        NOTO_SANS
-            .iter()
-            .chain(NOTO_SERIF.iter())
-            .chain(NOTO_REST.iter())
-            .for_each(|&bytes| font_db.load_font_data(Vec::from(bytes)));
+        let default_fonts = match builder.font_order {
+            FontOrder::SansFirst => NOTO_SANS.iter().chain(NOTO_SERIF.iter()),
+            FontOrder::SerifFirst => NOTO_SERIF.iter().chain(NOTO_SANS.iter()),
+        }
+        .chain(NOTO_REST.iter())
+        .map(|&bytes| Vec::from(bytes));
+        match builder.pre_fonts {
+            None => default_fonts.for_each(|bytes| font_db.load_font_data(bytes)),
+            Some(pre_fonts) => pre_fonts
+                .map(Into::into)
+                .chain(default_fonts)
+                .for_each(|bytes| font_db.load_font_data(bytes)),
+        }
         let font_system = FontSystem::new_with_locale_and_db("en".to_string(), font_db);
 
         Self {
