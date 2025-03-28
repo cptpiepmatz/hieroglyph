@@ -2,7 +2,12 @@
 name = "hieroglyph"
 version = "0.1.0"
 edition = "2024"
-include = ["src", "fonts.tar.zst", "templates"]
+include = [
+  "src",
+  "templates",
+  "build.rs",
+  "fonts.tar.zst"
+]
 
 [workspace]
 members = ["package"]
