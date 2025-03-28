@@ -1,5 +1,7 @@
-#[rustfmt::skip]
-pub mod fonts;
+pub mod fonts {
+    include!(concat!(env!("OUT_DIR"), "/fonts.rs"));
+}
+
 mod draw;
 mod segments;
 

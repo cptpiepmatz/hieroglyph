@@ -7,7 +7,7 @@ use cosmic_text::{Attrs, Buffer, FontSystem, Metrics, Shaping, SwashCache};
 use resvg::tiny_skia::{self, Pixmap, PixmapMut};
 use resvg::usvg::{Options, Transform, Tree};
 
-use crate::{fonts, EmojiSegment, Segment, Segments, TextSegment};
+use crate::{EmojiSegment, Segment, Segments, TextSegment, fonts};
 
 // use the emoji string as key
 type TreeCache = HashMap<&'static str, Tree>;
