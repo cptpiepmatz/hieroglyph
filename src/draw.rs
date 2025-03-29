@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::cmp::max;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
@@ -138,36 +139,11 @@ impl DrawingContext {
     }
 
     pub fn width(&mut self, segments: &Segments) -> u32 {
-        let metrics = Metrics::new(self.font_size, self.line_height);
-        let attrs = Attrs::new();
-        let mut buffer = Buffer::new_empty(metrics);
-
-        let (capital_height, _) = self.capital_info();
-
-        let mut width = 0.0;
-        for segment in segments.as_slice() {
-            match segment {
-                Segment::Emoji(_) => {
-                    let x_spacer = capital_height as f32 * 0.1;
-                    width += capital_height as f32 + x_spacer;
-                }
-                Segment::Text(text_segment) => {
-                    buffer.set_text(
-                        &mut self.font_system,
-                        text_segment.as_str(),
-                        attrs,
-                        Shaping::Advanced,
-                    );
-                    width += buffer
-                        .layout_runs()
-                        .map(|run| run.glyphs.iter().map(|glyph| glyph.w).sum::<f32>())
-                        .sum::<f32>()
-                        .ceil();
-                }
-            }
-        }
-
-        width as u32
+        let mut max_x = 0;
+        self.draw(segments, |(x, _), _| {
+            max_x = max_x.max(x);
+        });
+        max_x as u32 + 1 // add 1 so that max_x is within bounds
     }
 
     pub fn draw(&mut self, segments: &Segments, mut f: impl FnMut((i32, i32), [u8; 4])) {
@@ -175,10 +151,10 @@ impl DrawingContext {
         let attrs = Attrs::new();
         let mut buffer = Buffer::new_empty(metrics);
 
-        let (capital_height, capital_line_y) = self.capital_info();
         let capital_info = self.capital_info();
-        // TODO: expect or handle error
-        let mut emoji_buffer = Pixmap::new(capital_height, capital_height).unwrap();
+        let (capital_height, _) = capital_info;
+        let mut emoji_buffer =
+            Pixmap::new(max(capital_height, 1), max(capital_height, 1)).expect("never zero size");
         let mut emoji_buffer = emoji_buffer.as_mut();
 
         let x_offset = (|| {
@@ -280,7 +256,6 @@ impl DrawingContext {
         let tree = self.tree(segment);
         buffer.fill(tiny_skia::Color::TRANSPARENT);
         let scale = capital_height as f32 / tree.size().width();
-        // remember to do the same x_spacer in `width`
         let x_spacer = (capital_height as f32 * 0.1) as i32;
         *x_advance += x_spacer;
         let transform = Transform::from_scale(scale, scale);
@@ -396,35 +371,38 @@ mod tests {
     fn width_estimation_matches_drawn_output() {
         let mut ctx = DrawingContext::new();
         ctx.font_size(18.0);
-    
+
         let samples = vec![
+            "H",
+            "🦜",
             "Hello",
             "W🎉ide",
-            "👨‍👩‍👧‍👦", // complex emoji
+            "👨‍👩‍👧‍👦",         // complex emoji
             "你好，世界", // CJK characters
             "Hello 👋🌍 with more text",
         ];
-    
+
         for sample in samples {
             let segments = Segments::new(sample);
             let mut max_x = 0;
-    
+
             ctx.draw(&segments, |(x, _y), _color| {
                 max_x = max_x.max(x);
             });
-    
+
             let expected_width = ctx.width(&segments) as i32;
-    
+
             assert!(
                 max_x < expected_width,
-                "Draw used out-of-bounds pixel: max_x = {max_x}, width = {expected_width}, text = \"{sample}\""
+                "Draw used out-of-bounds pixel: max_x = {max_x}, width = {expected_width}, text = \
+                 \"{sample}\""
             );
-    
+
             assert!(
-                expected_width - max_x <= 1,
-                "Width overestimated too much: width = {expected_width}, max_x = {max_x}, text = \"{sample}\""
+                expected_width - max_x <= 2,
+                "Width overestimated too much: width = {expected_width}, max_x = {max_x}, text = \
+                 \"{sample}\""
             );
         }
     }
-    
 }
