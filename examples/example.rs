@@ -22,5 +22,5 @@ fn main() {
         canvas.put_pixel(x, y, pixel);
     });
 
-    canvas.save("img.png").unwrap();
+    canvas.save("examples/example.png").unwrap();
 }
