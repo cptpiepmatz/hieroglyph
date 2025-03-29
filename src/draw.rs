@@ -20,6 +20,14 @@ pub struct DrawingContext {
     font_size: f32,
     color: [u8; 4], // TODO: check if want a better color type
     line_height: f32,
+    /// Cache capital info using `font_size` and `line_height` as keys.
+    ///
+    /// Since both `font_size` and `line_height` are `f32`, we cannot use them
+    /// directly as keys. By converting them via [`f32::to_bits`], we can
+    /// key properly. Normally this isn't a good idea but considering that
+    /// users will only set the font size to specific values, this should be
+    /// fine.
+    capital_info: HashMap<(u32, u32), (u32, f32)>,
 }
 
 trait FontIterator: Iterator<Item = Vec<u8>> + Debug {}
@@ -102,7 +110,7 @@ impl DrawingContext {
                 .chain(default_fonts)
                 .for_each(|bytes| font_db.load_font_data(bytes)),
         }
-        let font_system = FontSystem::new_with_locale_and_db("en".to_string(), font_db);
+        let font_system = FontSystem::new_with_locale_and_db(builder.locale.to_string(), font_db);
 
         Self {
             font_size: 12.0,
@@ -112,6 +120,7 @@ impl DrawingContext {
             swash_cache: SwashCache::new(),
             tree_cache: TreeCache::new(),
             line_height: 50.0, // irrelevant for users right now as we do not handle newlines
+            capital_info: HashMap::new(),
         }
     }
 
@@ -133,10 +142,15 @@ impl DrawingContext {
         let attrs = Attrs::new();
         let mut buffer = Buffer::new_empty(metrics);
 
-        let mut width = 0;
+        let (capital_height, _) = self.capital_info();
+
+        let mut width = 0.0;
         for segment in segments.as_slice() {
             match segment {
-                Segment::Emoji(emoji_segment) => todo!(),
+                Segment::Emoji(_) => {
+                    let x_spacer = capital_height as f32 * 0.1;
+                    width += capital_height as f32 + x_spacer;
+                }
                 Segment::Text(text_segment) => {
                     buffer.set_text(
                         &mut self.font_system,
@@ -148,12 +162,12 @@ impl DrawingContext {
                         .layout_runs()
                         .map(|run| run.glyphs.iter().map(|glyph| glyph.w).sum::<f32>())
                         .sum::<f32>()
-                        .ceil() as u32;
+                        .ceil();
                 }
             }
         }
 
-        width
+        width as u32
     }
 
     pub fn draw(&mut self, segments: &Segments, mut f: impl FnMut((i32, i32), [u8; 4])) {
@@ -266,6 +280,7 @@ impl DrawingContext {
         let tree = self.tree(segment);
         buffer.fill(tiny_skia::Color::TRANSPARENT);
         let scale = capital_height as f32 / tree.size().width();
+        // remember to do the same x_spacer in `width`
         let x_spacer = (capital_height as f32 * 0.1) as i32;
         *x_advance += x_spacer;
         let transform = Transform::from_scale(scale, scale);
@@ -283,8 +298,26 @@ impl DrawingContext {
         *x_advance += capital_height as i32 + x_spacer;
     }
 
+    /// Returns the estimated height and width of a capital letter
+    /// for the current `font_size` and `line_height`.
+    ///
+    /// The tuple contains:
+    /// - `u32`: the pixel height of the glyph, this is the number of vertical
+    ///   pixels required to render it.
+    /// - `f32`: the glyph's layout width, which may include subpixel precision.
+    ///
+    /// This is useful for aligning or sizing capital text in layouts.
+    ///
+    /// Internally, the capital letter `H` is used as a representative glyph, as
+    /// it typically has consistent dimensions across fonts.
+    /// The result is cached and reused for the same font size and line height.
     pub fn capital_info(&mut self) -> (u32, f32) {
-        (|| {
+        let key = (self.font_size.to_bits(), self.line_height.to_bits());
+        if let Some(info) = self.capital_info.get(&key) {
+            return info.clone();
+        };
+
+        let info = (|| {
             let metrics = Metrics::new(self.font_size, self.line_height);
             let attrs = Attrs::new();
             let mut buffer = Buffer::new_empty(metrics);
@@ -300,7 +333,10 @@ impl DrawingContext {
             let line_y = run.line_y;
             Some((height, line_y))
         })()
-        .unwrap_or((0, 0.0))
+        .unwrap_or((0, 0.0));
+
+        self.capital_info.insert(key, info.clone());
+        return info;
     }
 
     pub fn tree(&mut self, segment: EmojiSegment) -> &Tree {
@@ -355,4 +391,40 @@ mod tests {
 
         assert_eq!(iter.collect::<Vec<(u32, u32, usize)>>(), expected);
     }
+
+    #[test]
+    fn width_estimation_matches_drawn_output() {
+        let mut ctx = DrawingContext::new();
+        ctx.font_size(18.0);
+    
+        let samples = vec![
+            "Hello",
+            "W🎉ide",
+            "👨‍👩‍👧‍👦", // complex emoji
+            "你好，世界", // CJK characters
+            "Hello 👋🌍 with more text",
+        ];
+    
+        for sample in samples {
+            let segments = Segments::new(sample);
+            let mut max_x = 0;
+    
+            ctx.draw(&segments, |(x, _y), _color| {
+                max_x = max_x.max(x);
+            });
+    
+            let expected_width = ctx.width(&segments) as i32;
+    
+            assert!(
+                max_x < expected_width,
+                "Draw used out-of-bounds pixel: max_x = {max_x}, width = {expected_width}, text = \"{sample}\""
+            );
+    
+            assert!(
+                expected_width - max_x <= 1,
+                "Width overestimated too much: width = {expected_width}, max_x = {max_x}, text = \"{sample}\""
+            );
+        }
+    }
+    
 }
