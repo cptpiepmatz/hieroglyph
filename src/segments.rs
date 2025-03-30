@@ -1,28 +1,47 @@
 use twemoji_assets::svg::SvgTwemojiAsset;
 use unicode_segmentation::UnicodeSegmentation;
 
+/// `TextSegment` holds a reference to a snippet of the input string.
+/// 
+/// When the input string is split at emojis, each snippet of text found between emojis
+/// is captured as a separate `TextSegment`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct TextSegment<'s>(&'s str);
 
 impl<'s> TextSegment<'s> {
+    /// Returns the contained string slice.
     pub fn as_str(&'s self) -> &'s str {
         self.0
     }
 }
 
+/// `EmojiSegment` represents a single emoji from the input string.
+/// 
+/// Unlike [`TextSegment`], it doesn't hold a reference to the input text but stores an 
+/// [`SvgTwemojiAsset`].
+/// Use [`svg()`](EmojiSegment::svg) to get the SVG string for the emoji and 
+/// [`emoji()`](EmojiSegment::emoji) to get the emoji character.
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct EmojiSegment(&'static SvgTwemojiAsset);
 
 impl EmojiSegment {
+    /// Returns the SVG string for this emoji.
     pub fn svg(&self) -> &'static str {
         self.0
     }
 
+    /// Returns the emoji character represented by this segment.
     pub fn emoji(&self) -> &'static str {
         self.0.emoji
     }
 }
 
+/// Segment represents either a text or an emoji segment.
+/// 
+/// It can hold a [`TextSegment`] or an [`EmojiSegment`]. 
+/// The methods [`as_text`](Segment::as_text) and [`as_emoji`](Segment::as_emoji) let you easily 
+/// get the inner value as an [`Option`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Segment<'s> {
     Text(TextSegment<'s>),
@@ -30,6 +49,7 @@ pub enum Segment<'s> {
 }
 
 impl<'s> Segment<'s> {
+    /// Returns the inner [`TextSegment`] if this is a text segment, or [`None`] otherwise.
     pub fn as_text(self) -> Option<TextSegment<'s>> {
         match self {
             Segment::Text(text_segment) => Some(text_segment),
@@ -37,6 +57,7 @@ impl<'s> Segment<'s> {
         }
     }
 
+    /// Returns the inner [`EmojiSegment`] if this is an emoji segment, or [`None`] otherwise.
     pub fn as_emoji(self) -> Option<EmojiSegment> {
         match self {
             Segment::Text(_) => None,
@@ -45,10 +66,17 @@ impl<'s> Segment<'s> {
     }
 }
 
+/// Iterator over grapheme clusters and text segments of a string.
+/// 
+/// Use [`Segments::new`] as the main entry point for converting text into segments ready for 
+/// rendering.
+/// The same `Segments` instance can be used multiple times for rendering the same string multiple 
+/// times, avoiding recalculating the clusters.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Segments<'s>(Vec<Segment<'s>>);
 
 impl<'s> Segments<'s> {
+    /// Creates a new Segments by splitting the input string into text and emoji segments.
     pub fn new(s: &'s str) -> Self {
         let mut segments = Vec::new();
 
@@ -81,6 +109,7 @@ impl<'s> Segments<'s> {
         Segments(segments)
     }
 
+    /// Returns a slice of the computed segments.
     pub fn as_slice(&'s self) -> &'s [Segment<'s>] {
         &self.0
     }
