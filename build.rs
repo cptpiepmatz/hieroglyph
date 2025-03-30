@@ -17,6 +17,7 @@ fn main() -> anyhow::Result<()> {
     println!("cargo:rerun-if-changed=fonts.tar.zst");
 
     build_fonts_module(&fonts_dir, &module_path)?;
+    println!("cargo:rerun-if-changed=templates/fonts.template.rs");
 
     Ok(())
 }
