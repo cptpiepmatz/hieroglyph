@@ -19,8 +19,9 @@ pub struct DrawingContext {
     swash_cache: SwashCache,
     tree_cache: TreeCache,
     font_size: f32,
-    color: [u8; 4], // TODO: check if want a better color type
+    color: [u8; 4],
     line_height: f32,
+    
     /// Cache capital info using `font_size` and `line_height` as keys.
     ///
     /// Since both `font_size` and `line_height` are `f32`, we cannot use them
