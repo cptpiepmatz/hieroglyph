@@ -2,7 +2,24 @@
 name = "hieroglyph"
 version = "0.1.0"
 edition = "2024"
+repository = "https://github.com/cptpiepmatz/hieroglyph"
+description = "Render obscure scripts and emojis locally with zero dependencies."
+license = "MIT"
+keywords = [
+  "text-rendering",
+  "unicode",
+  "emoji",
+  "font"
+]
+categories = [
+  "graphics",
+  "gui",
+  "multimedia::images", 
+  "rendering",
+  "value-formatting"
+]
 include = [
+  "examples",
   "src",
   "templates",
   "build.rs",
