@@ -13,6 +13,16 @@ use crate::{EmojiSegment, Segment, Segments, TextSegment, fonts};
 // use the emoji string as key
 type TreeCache = HashMap<&'static str, Tree>;
 
+/// Context for drawing on arbitrary pixel buffers.
+///
+/// `DrawingContext` holds settings and caches so you can reuse the same configuration
+/// across multiple drawing operations. 
+/// The [`draw`](DrawingContext::draw) method does not consume the provided [`Segments`] or the 
+/// `DrawingContext` itself.
+///
+/// Create a new `DrawingContext` with [`new`](DrawingContext::new) or customize it via
+/// [`configure`](DrawingContext::configure). 
+/// Some settings can be changed later, while others must be set using the [`DrawingContextBuilder`].
 #[derive(Debug)]
 pub struct DrawingContext {
     font_system: FontSystem,
@@ -35,6 +45,29 @@ pub struct DrawingContext {
 trait FontIterator: Iterator<Item = Vec<u8>> + Debug {}
 impl<I> FontIterator for I where I: Iterator<Item = Vec<u8>> + Debug {}
 
+/// A builder to configure a new [`DrawingContext`].
+///
+/// Use `DrawingContextBuilder` to customize settings for a new drawing context. 
+/// You can adjust:
+/// - **Font order:** Choose which fonts to check first when rendering text.
+/// - **Pre-loaded fonts:** Add your own fonts to use before the built-in ones.
+/// - **Locale:** Set the locale for text shaping and rendering.
+///
+/// This builder is designed for chaining. 
+/// For example, you can write:
+/// ```rust
+/// # use hieroglyph::*;
+/// #
+/// # let your_font_iterator = std::iter::empty::<Vec<u8>>();
+/// let ctx = DrawingContext::configure()
+///     .font_order(FontOrder::SerifFirst)
+///     .pre_fonts(your_font_iterator)
+///     .locale("de")
+///     .build();
+/// ```
+///
+/// Once you've set your options, call [`build`](DrawingContextBuilder::build) to create the final 
+/// [`DrawingContext`].
 #[derive(Debug)]
 pub struct DrawingContextBuilder {
     font_order: FontOrder,
@@ -53,11 +86,18 @@ impl Default for DrawingContextBuilder {
 }
 
 impl DrawingContextBuilder {
+    /// Sets the font order for the drawing context.
+    ///
+    /// This determines which fonts are checked first when rendering text 
+    /// (e.g., sans-serif before serif).
     pub fn font_order(mut self, font_order: FontOrder) -> Self {
         self.font_order = font_order;
         self
     }
 
+    /// Sets the pre-loaded fonts to be used before the built-in ones.
+    ///
+    /// Accepts an iterator over items that can be converted into font data (`Vec<u8>`).
     pub fn pre_fonts(
         self,
         pre_fonts: impl Iterator<Item = impl Into<Vec<u8>> + 'static> + 'static + Debug,
@@ -69,16 +109,25 @@ impl DrawingContextBuilder {
         }
     }
 
+    /// Sets the locale for text shaping and rendering.
+    ///
+    /// Accepts any value that can be converted into a `Cow<'static, str>`.
     pub fn locale(mut self, locale: impl Into<Cow<'static, str>>) -> Self {
         self.locale = locale.into();
         self
     }
 
+    /// Consumes the builder and creates a new [`DrawingContext`].
     pub fn build(self) -> DrawingContext {
-        DrawingContext::new_from_builder(self)
+        DrawingContext::from_builder(self)
     }
 }
 
+/// Determines the priority order of fonts when rendering characters.
+///
+/// This enum tells the rendering system which fonts to search first for a given character.
+/// By default, [`SansFirst`](FontOrder::SansFirst) is used, meaning sans-serif fonts are 
+/// prioritized before serif fonts.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub enum FontOrder {
     #[default]
@@ -87,15 +136,35 @@ pub enum FontOrder {
 }
 
 impl DrawingContext {
+    /// Creates a new `DrawingContext` with default settings.
+    ///
+    /// This is equivalent to calling [`configure`](DrawingContext::configure) followed by 
+    /// `.build()`.
     pub fn new() -> Self {
         Self::configure().build()
     }
 
+    /// Returns a builder for customizing a new `DrawingContext`.
+    ///
+    /// Use this builder to configure settings such as font order, locale, or additional fonts 
+    /// before creating the context. 
+    /// Some settings can be modified later, while others must be defined during the build process.
     pub fn configure() -> DrawingContextBuilder {
         DrawingContextBuilder::default()
     }
 
-    pub fn new_from_builder(builder: DrawingContextBuilder) -> Self {
+    /// Creates a new `DrawingContext` from the given builder.
+    ///
+    /// This method uses the configuration provided by a [`DrawingContextBuilder`] to initialize a 
+    /// new `DrawingContext`, setting up the font system, loading fonts, and initializing internal 
+    /// caches.
+    ///
+    /// # Note
+    /// 
+    /// Typically, you won't call this method directly. 
+    /// Instead, use the builder's [`build`](DrawingContextBuilder::build) method, which calls this 
+    /// internally and lets you chain configuration calls easily.
+    pub fn from_builder(builder: DrawingContextBuilder) -> Self {
         use fonts::{NOTO_REST, NOTO_SANS, NOTO_SERIF};
 
         let mut font_db = Database::new();
@@ -126,19 +195,36 @@ impl DrawingContext {
         }
     }
 
+    /// Sets the font size.
     pub fn font_size(&mut self, font_size: f32) {
         self.font_size = font_size;
         self.line_height = font_size;
     }
 
+    /// Sets the drawing color using RGBA values.
     pub fn rgba(&mut self, r: u8, g: u8, b: u8, a: u8) {
         self.color = [r, g, b, a];
     }
 
+    /// Sets the drawing color using RGB values.
+    ///
+    /// Uses the provided red, green, and blue values with full opacity (alpha = 255).
     pub fn rgb(&mut self, r: u8, g: u8, b: u8) {
         self.rgba(r, g, b, 255);
     }
 
+    /// Calculates and returns the width required to render the given segments.
+    ///
+    /// This method computes the pixel width needed to render the provided [`Segments`] using the 
+    /// current settings (font size, color, caches, etc.). 
+    /// It works by "drawing" the segments and tracking the farthest x-coordinate reached. 
+    /// The computation cost is the same as performing a full drawing operation.
+    ///
+    /// The returned width can be used for horizontal text alignment. 
+    /// Since this method fully renders the text to measure its width, it is computationally 
+    /// expensive. 
+    /// For the same configuration and segments, the result will remain consistent, so consider 
+    /// caching it externally if it is needed frequently.
     pub fn width(&mut self, segments: &Segments) -> u32 {
         let mut max_x = 0;
         self.draw(segments, |(x, _), _| {
@@ -147,6 +233,22 @@ impl DrawingContext {
         max_x as u32 + 1 // add 1 so that max_x is within bounds
     }
 
+    /// Renders the provided segments to an arbitrary image buffer.
+    ///
+    /// This method uses the current settings (font size, color, caches, etc.) to render the 
+    /// provided [`Segments`] and outputs the resulting pixels via a callback.
+    ///
+    /// The callback function `f` should have the following signature:
+    /// - It takes two parameters:
+    ///   1. A tuple `(x, y)` of type `(i32, i32)` representing the pixel's coordinates.
+    ///      Coordinates start at the top-left of the image, and using `i32` allows pixels to be 
+    ///      drawn slightly left or above the origin.
+    ///   2. An array `[u8; 4]` representing the pixel's raw RGBA color data.
+    ///      Passing raw pixels lets even image buffers without an alpha channel blend their colors.
+    ///
+    /// Note that `draw` does not consume the provided [`Segments`] or the `DrawingContext`.
+    /// You can call this method multiple times with the same segments without needing to reset
+    /// or re-prepare anything.
     pub fn draw(&mut self, segments: &Segments, mut f: impl FnMut((i32, i32), [u8; 4])) {
         let metrics = Metrics::new(self.font_size, self.line_height);
         let attrs = Attrs::new();
@@ -315,6 +417,10 @@ impl DrawingContext {
         return info;
     }
 
+    /// Returns an SVG tree for the given emoji segment.
+    ///
+    /// This operation is cached, subsequent calls with the same emoji segment will return the 
+    /// previously generated tree.
     pub fn tree(&mut self, segment: EmojiSegment) -> &Tree {
         self.tree_cache.entry(segment.emoji()).or_insert_with(|| {
             let options = Options::default();
